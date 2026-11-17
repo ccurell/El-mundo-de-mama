@@ -54,7 +54,13 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 /* list panel */
 #listpanel{position:fixed;right:18px;top:70px;bottom:150px;width:290px;z-index:5;display:flex;flex-direction:column;overflow:hidden}
 #listpanel header{padding:16px 18px 10px;border-bottom:1px solid var(--line)}
-#listpanel h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:0}
+#listpanel header{padding:12px 14px 10px}
+.tabs{display:flex;gap:4px;background:rgba(255,255,255,.06);border-radius:999px;padding:4px}
+.tabs button{flex:1;border:0;background:none;padding:8px 6px;border-radius:999px;font-family:var(--serif);font-size:15px;font-weight:600;color:var(--muted);white-space:nowrap}
+.tabs button.on{background:var(--ink);color:#1a1d2b}
+#listSub{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--muted);margin:10px 4px 0;display:none}
+.item .flag{width:32px;height:32px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.08);display:grid;place-items:center;font-size:16px;box-shadow:0 0 0 2px rgba(255,255,255,.15)}
+.item .flag img{width:100%;height:100%;object-fit:cover;display:block}
 #stats{font-size:12.5px;color:var(--accent2);margin-top:6px;display:none;line-height:1.4}
 #list{overflow:auto;padding:8px;flex:1}
 .item{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;padding:9px 10px;border-radius:12px}
@@ -194,7 +200,7 @@ body.dragging #dropHint{display:grid}
 
 <button id="listToggle" class="glass"></button>
 <aside id="listpanel" class="glass">
-  <header><h2 id="listTitle"></h2><div id="stats"></div></header>
+  <header><div class="tabs"><button data-tab="trips" id="tabTrips"></button><button data-tab="homes" id="tabHomes"></button></div><div id="listSub"></div><div id="stats"></div></header>
   <div id="list"></div>
 </aside>
 
@@ -209,7 +215,6 @@ body.dragging #dropHint{display:grid}
     <button class="cbtn" id="allBtn"></button>
   </div>
   <div id="trackWrap" style="grid-column:1 / -1"><div id="ticks"></div><input type="range" id="slider"></div>
-  <div id="legend"></div>
 </div>
 
 <div id="toast"></div>
@@ -219,6 +224,7 @@ body.dragging #dropHint{display:grid}
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script src="world.js"></script>
+<script src="regions.js"></script>
 <script>
 /* =====================================================================
    ✏️  EDIT EVERYTHING IN THIS BLOCK — this is all you need to change.
@@ -231,14 +237,13 @@ const CONFIG = {
   startYear: 1993,  // first year on the timeline
   showHomeRoute: false, // true = dashed line joining her homes in order
   // Trips are read from these GeoJSON files (edit them in QGIS — see README).
-  // places = points, areas = polygons (e.g. a region she toured).
-  dataFiles: ['data/places.geojson', 'data/areas.geojson'],
-  areaColor: '#e8875b',   // default colour for areas (a feature's own `color` field wins)
+  dataFiles: ['data/places.geojson'],
+  showRegions: true,       // province/state boundaries inside each country
   defaultLang: 'es',
   showLanguageSwitch: false, // true = ES/EN button (then add name_en / story_en / captions_en in the data)
   // 'embedded' = drawn globe (works anywhere, including this preview)
   // 'satellite' = real satellite imagery (use once hosted on GitHub Pages / Netlify)
-  basemap: 'satellite',
+  basemap: 'embedded',
   // true once hosted: YouTube links play inside the card. false = shows a link.
   embedVideos: true,
   showSoloButton: false, // true = adds a 'Sola' button to filter trips she took alone
@@ -295,7 +300,9 @@ const GROUPS = {
 // Trips now live in the GeoJSON files listed in CONFIG.dataFiles (edit them in QGIS).
 // Fields: name, type ('lived' | 'visited'), start, end (empty = still lives there / same year),
 //         with ('papa;clau'), story, photos ('photos/a.jpg;photos/b.jpg'),
-//         captions (same order as photos, ';'-separated), video, color (areas).
+//         captions (same order as photos, ';'-separated), video,
+//         country (optional — the flag is detected from the pin's location; fill this in only to
+//                  override it, as a name like 'España' or a 2-letter code like 'ES').
 // You can also type extra trips by hand here (same format as before: place, lat, lon, type, start, end, with, story, photos, video).
 const MANUAL_TRIPS = [
 ];
@@ -311,13 +318,13 @@ const I18N = {
         lived: 'Vivió aquí', visited: 'Viaje', solo: 'Sola', go: 'Empezar el viaje', kick: 'Un regalo',
         home: 'Su casa', trip: 'Viaje', route: 'De casa en casa', places: 'Lugares',
         stat: (names, n, first) => `Con ${names}: ${n} ${n === 1 ? 'lugar' : 'lugares'} · desde ${first}`,
-        nPlaces: n => `${n} lugares`, area: 'Zona', loaded: (n, f) => `Cargados ${n} lugares de ${f} ${f === 1 ? 'archivo' : 'archivos'}`, badFile: 'No se pudo leer ese archivo GeoJSON.', noFiles: 'No se pudieron leer los archivos de datos. Si abriste la página directamente desde tu ordenador, arrastra aquí tus archivos .geojson (o usa un servidor local — ver README).', now: 'hoy', videoDemo: '🎬 Aquí irá un vídeo', watch: '▶ Ver el vídeo' },
+        nPlaces: n => `${n} lugares`, tabTrips: 'Mis viajes', tabHomes: 'Mis hogares', noneTrips: 'Ningún viaje en este año con este filtro.', noneHomes: 'Ningún hogar en este año con este filtro.', area: 'Zona', loaded: (n, f) => `Cargados ${n} lugares de ${f} ${f === 1 ? 'archivo' : 'archivos'}`, badFile: 'No se pudo leer ese archivo GeoJSON.', noFiles: 'No se pudieron leer los archivos de datos. Si abriste la página directamente desde tu ordenador, arrastra aquí tus archivos .geojson (o usa un servidor local — ver README).', now: 'hoy', videoDemo: '🎬 Aquí irá un vídeo', watch: '▶ Ver el vídeo' },
   en: { with: 'Who with', clear: 'Show all', all: 'Her whole life', allBtn: 'Show all', inYear: y => `In ${y}`,
         allPlaces: n => `All places · ${n}`, none: 'No places this year with this filter.',
         lived: 'Lived here', visited: 'Trip', solo: 'Solo', go: 'Start the journey', kick: 'A gift',
         home: 'Home', trip: 'Trip', route: 'Home to home', places: 'Places',
         stat: (names, n, first) => `With ${names}: ${n} ${n === 1 ? 'place' : 'places'} · since ${first}`,
-        nPlaces: n => `${n} places`, area: 'Area or route', loaded: (n, f) => `Loaded ${n} places from ${f} ${f === 1 ? 'file' : 'files'}`, badFile: 'Could not read that GeoJSON file.', noFiles: 'Could not read the data files. If you opened the page straight from your computer, drag your .geojson files here (or use a local server — see README).', now: 'now', videoDemo: '🎬 A video will go here', watch: '▶ Watch the video' },
+        nPlaces: n => `${n} places`, tabTrips: 'All my trips', tabHomes: 'All my homes', noneTrips: 'No trips this year with this filter.', noneHomes: 'No homes this year with this filter.', area: 'Area or route', loaded: (n, f) => `Loaded ${n} places from ${f} ${f === 1 ? 'file' : 'files'}`, badFile: 'Could not read that GeoJSON file.', noFiles: 'Could not read the data files. If you opened the page straight from your computer, drag your .geojson files here (or use a local server — see README).', now: 'now', videoDemo: '🎬 A video will go here', watch: '▶ Watch the video' },
 };
 
 let lang = CONFIG.defaultLang;
@@ -425,12 +432,12 @@ function tripFromFeature(f) {
     with: splitList(p.with), story: (p.story || p.story_es || p.story_en) ? { es: p.story || p.story_es || p.story_en, en: p.story_en || p.story || p.story_es } : null,
     photos: photos.map((src, i) => (capEs[i] || capEn[i]) ? { src, caption: { es: capEs[i] || capEn[i], en: capEn[i] || capEs[i] } } : src),
     video: p.video || null, color: p.color || null,
-    geom: /Polygon/.test(g.type) ? g : null,
+    geom: null, country: p.country || null,
   };
 }
 
 let TRIPS = [], fileTrips = [], MINY = CONFIG.startYear || NOW, MAXY = NOW, EVENT_YEARS = [];
-const state = { year: MINY, all: true, people: new Set(), playing: false };
+const state = { year: MINY, all: true, people: new Set(), playing: false, tab: 'trips' };
 
 function prepData() {
   TRIPS = [...MANUAL_TRIPS.map(t => ({ ...t })), ...fileTrips];
@@ -438,6 +445,7 @@ function prepData() {
     t.id = i;
     t.endY = t.end != null ? t.end : (t.type === 'lived' ? NOW : t.start);
     t.people = expandWith(t.with);
+    t.cc = countryCode(t);
     t.key = t.lat.toFixed(3) + ',' + t.lon.toFixed(3) + (t.geom ? '#' + i : '');
   });
   MINY = CONFIG.startYear || (TRIPS.length ? Math.min(...TRIPS.map(t => t.start)) : NOW);
@@ -517,6 +525,34 @@ countries.features.forEach(f => {
   });
 });
 
+/* ---------- countries: detect each pin's country for its flag ---------- */
+const COUNTRY_CODES = {"N2A":{"100":"bg","104":"mm","108":"bi","112":"by","116":"kh","120":"cm","124":"ca","132":"cv","136":"ky","140":"cf","144":"lk","148":"td","152":"cl","156":"cn","158":"tw","162":"cx","166":"cc","170":"co","174":"km","175":"yt","178":"cg","180":"cd","184":"ck","188":"cr","191":"hr","192":"cu","196":"cy","203":"cz","204":"bj","208":"dk","212":"dm","214":"do","218":"ec","222":"sv","226":"gq","231":"et","232":"er","233":"ee","234":"fo","238":"fk","239":"gs","242":"fj","246":"fi","248":"ax","250":"fr","254":"gf","258":"pf","260":"tf","262":"dj","266":"ga","268":"ge","270":"gm","275":"ps","276":"de","288":"gh","292":"gi","296":"ki","300":"gr","304":"gl","308":"gd","312":"gp","316":"gu","320":"gt","324":"gn","328":"gy","332":"ht","334":"hm","336":"va","340":"hn","344":"hk","348":"hu","352":"is","356":"in","360":"id","364":"ir","368":"iq","372":"ie","376":"il","380":"it","384":"ci","388":"jm","392":"jp","398":"kz","400":"jo","404":"ke","408":"kp","410":"kr","414":"kw","417":"kg","418":"la","422":"lb","426":"ls","428":"lv","430":"lr","434":"ly","438":"li","440":"lt","442":"lu","446":"mo","450":"mg","454":"mw","458":"my","462":"mv","466":"ml","470":"mt","474":"mq","478":"mr","480":"mu","484":"mx","492":"mc","496":"mn","498":"md","499":"me","500":"ms","504":"ma","508":"mz","512":"om","516":"na","520":"nr","524":"np","528":"nl","531":"cw","533":"aw","534":"sx","535":"bq","540":"nc","548":"vu","554":"nz","558":"ni","562":"ne","566":"ng","570":"nu","574":"nf","578":"no","580":"mp","581":"um","583":"fm","584":"mh","585":"pw","586":"pk","591":"pa","598":"pg","600":"py","604":"pe","608":"ph","612":"pn","616":"pl","620":"pt","624":"gw","626":"tl","630":"pr","634":"qa","638":"re","642":"ro","643":"ru","646":"rw","652":"bl","654":"sh","659":"kn","660":"ai","662":"lc","663":"mf","666":"pm","670":"vc","674":"sm","678":"st","682":"sa","686":"sn","688":"rs","690":"sc","694":"sl","702":"sg","703":"sk","704":"vn","705":"si","706":"so","710":"za","716":"zw","724":"es","728":"ss","729":"sd","732":"eh","740":"sr","744":"sj","748":"sz","752":"se","756":"ch","760":"sy","762":"tj","764":"th","768":"tg","772":"tk","776":"to","780":"tt","784":"ae","788":"tn","792":"tr","795":"tm","796":"tc","798":"tv","800":"ug","804":"ua","807":"mk","818":"eg","826":"gb","831":"gg","832":"je","833":"im","834":"tz","840":"us","850":"vi","854":"bf","858":"uy","860":"uz","862":"ve","876":"wf","882":"ws","887":"ye","894":"zm","983":"xk","004":"af","008":"al","012":"dz","016":"as","020":"ad","024":"ao","010":"aq","028":"ag","032":"ar","051":"am","036":"au","040":"at","031":"az","044":"bs","048":"bh","050":"bd","052":"bb","056":"be","084":"bz","060":"bm","064":"bt","068":"bo","070":"ba","072":"bw","074":"bv","076":"br","086":"io","096":"bn","090":"sb","092":"vg"},"NM":{"afganistan":"af","albania":"al","argelia":"dz","samoa americana":"as","andorra":"ad","angola":"ao","anguila":"ai","antartida":"aq","antigua y barbuda":"ag","argentina":"ar","armenia":"am","aruba":"aw","australia":"au","austria":"at","azerbaiyan":"az","bahamas":"bs","bahrein":"bh","bangladesh":"bd","barbados":"bb","bielorrusia":"by","belgica":"be","belice":"bz","benin":"bj","bermudas":"bm","butan":"bt","bolivia":"bo","bosnia y herzegovina":"ba","botswana":"bw","isla bouvet":"bv","brasil":"br","territorio britanico del oceano indico":"io","brunei darussalam":"bn","bulgaria":"bg","burkina faso":"bf","burundi":"bi","camboya":"kh","camerun":"cm","canada":"ca","cabo verde":"cv","islas caiman":"ky","republica centroafricana":"cf","chad":"td","chile":"cl","china":"cn","isla de navidad":"cx","islas cocos keeling":"cc","colombia":"co","comoras":"km","congo":"cd","congo republica democratica del":"cd","islas cook":"ck","costa rica":"cr","costa de marfil":"ci","croacia":"hr","cuba":"cu","chipre":"cy","republica checa":"cz","dinamarca":"dk","yibuti":"dj","dominica":"dm","republica dominicana":"do","ecuador":"ec","egipto":"eg","el salvador":"sv","guinea ecuatorial":"gq","eritrea":"er","estonia":"ee","etiopia":"et","islas malvinas":"fk","islas feroe":"fo","fiji":"fj","finlandia":"fi","francia":"fr","guayana francesa":"gf","polinesia francesa":"pf","tierras australes francesas":"tf","gabon":"ga","gambia":"gm","georgia":"ge","alemania":"de","ghana":"gh","gibraltar":"gi","grecia":"gr","groenlandia":"gl","granada":"gd","guadalupe":"gp","guam":"gu","guatemala":"gt","guinea":"gn","guinea bissau":"gw","guyana":"gy","haiti":"ht","heard e islas mcdonald":"hm","santa sede":"va","honduras":"hn","hong kong":"hk","hungria":"hu","islandia":"is","india":"in","indonesia":"id","iran":"ir","republica islamica de iran":"ir","iraq":"iq","irlanda":"ie","israel":"il","italia":"it","jamaica":"jm","japon":"jp","jordania":"jo","kazajistan":"kz","kenia":"ke","kiribati":"ki","republica popular democratica de corea":"kp","republica de corea":"kr","kuwait":"kw","kirguistan":"kg","republica democratica popular de lao":"la","letonia":"lv","libano":"lb","lesoto":"ls","liberia":"lr","libia":"ly","liechtenstein":"li","lituania":"lt","luxemburgo":"lu","macao":"mo","macedonia del norte":"mk","madagascar":"mg","malaui":"mw","malasia":"my","maldivas":"mv","mali":"ml","malta":"mt","islas marshall":"mh","martinica":"mq","mauritania":"mr","mauricio":"mu","mayotte":"yt","mexico":"mx","micronesia":"fm","moldavia":"md","monaco":"mc","mongolia":"mn","montserrat":"ms","marruecos":"ma","mozambique":"mz","myanmar":"mm","namibia":"na","nauru":"nr","nepal":"np","paises bajos":"nl","nueva caledonia":"nc","nueva zelanda":"nz","nicaragua":"ni","niger":"ne","nigeria":"ng","niue":"nu","isla norfolk":"nf","islas marianas del norte":"mp","noruega":"no","oman":"om","pakistan":"pk","palau":"pw","palestina":"ps","panama":"pa","papua nueva guinea":"pg","paraguay":"py","peru":"pe","filipinas":"ph","pitcairn":"pn","polonia":"pl","portugal":"pt","puerto rico":"pr","catar":"qa","reunion":"re","rumania":"ro","rusia":"ru","ruanda":"rw","santa helena ascension y tristan de acuna":"sh","saint kitts y nevis":"kn","santa lucia":"lc","san pedro y miquelon":"pm","san vicente y las granadinas":"vc","samoa":"ws","san marino":"sm","santo tome y principe":"st","arabia saudita":"sa","senegal":"sn","seychelles":"sc","sierra leona":"sl","singapur":"sg","eslovaquia":"sk","eslovenia":"si","islas salomon":"sb","somalia":"so","sudafrica":"za","georgia del sur y las islas sandwich del sur":"gs","espana":"es","sri lanka":"lk","sudan":"sd","suriname":"sr","svalbard y jan mayen":"sj","esuatini":"sz","suecia":"se","suiza":"ch","republica arabe siria":"sy","taiwan":"tw","tayikistan":"tj","tanzania":"tz","tailandia":"th","timorleste":"tl","togo":"tg","tokelau":"tk","tonga":"to","trinidad y tobago":"tt","tunez":"tn","turquia":"tr","turkmenistan":"tm","islas turcas y caicos":"tc","tuvalu":"tv","uganda":"ug","ucrania":"ua","emiratos arabes unidos":"ae","reino unido":"gb","estados unidos":"us","islas ultramarinas menores de los estados unidos":"um","uruguay":"uy","uzbekistan":"uz","vanuatu":"vu","venezuela":"ve","vietnam":"vn","islas virgenes britanicas":"vg","islas virgenes de los estados unidos":"vi","wallis y futuna":"wf","sahara occidental":"eh","yemen":"ye","zambia":"zm","zimbabue":"zw","islas aland":"ax","bonaire san eustaquio y saba":"bq","curacao":"cw","guernsey":"gg","isla de man":"im","jersey":"je","montenegro":"me","saint barthelemy":"bl","saint martin francesa":"mf","serbia":"rs","sint maarten neerlandesa":"sx","sudan del sur":"ss","kosovo":"xk","afghanistan":"af","algeria":"dz","american samoa":"as","anguilla":"ai","antarctica":"aq","antigua and barbuda":"ag","azerbaijan":"az","bahrain":"bh","belarus":"by","belgium":"be","belize":"bz","bermuda":"bm","bhutan":"bt","bosnia and herzegovina":"ba","bouvet island":"bv","brazil":"br","british indian ocean territory":"io","cambodia":"kh","cameroon":"cm","cape verde":"cv","cayman islands":"ky","central african republic":"cf","peoples republic of china":"cn","christmas island":"cx","cocos keeling islands":"cc","comoros":"km","republic of the congo":"cg","democratic republic of the congo":"cd","cook islands":"ck","cote divoire":"ci","ivory coast":"ci","croatia":"hr","cyprus":"cy","czech republic":"cz","czechia":"cz","denmark":"dk","djibouti":"dj","dominican republic":"do","egypt":"eg","equatorial guinea":"gq","ethiopia":"et","falkland islands malvinas":"fk","faroe islands":"fo","finland":"fi","france":"fr","french guiana":"gf","french polynesia":"pf","french southern territories":"tf","republic of the gambia":"gm","the gambia":"gm","germany":"de","greece":"gr","greenland":"gl","grenada":"gd","guadeloupe":"gp","guineabissau":"gw","heard island and mcdonald islands":"hm","holy see vatican city state":"va","hungary":"hu","iceland":"is","islamic republic of iran":"ir","ireland":"ie","italy":"it","japan":"jp","jordan":"jo","kazakhstan":"kz","kenya":"ke","north korea":"kp","south korea":"kr","korea republic of":"kr","republic of korea":"kr","kyrgyzstan":"kg","lao peoples democratic republic":"la","latvia":"lv","lebanon":"lb","lesotho":"ls","libya":"ly","lithuania":"lt","luxembourg":"lu","malawi":"mw","malaysia":"my","maldives":"mv","marshall islands":"mh","martinique":"mq","mauritius":"mu","micronesia federated states of":"fm","moldova republic of":"md","morocco":"ma","netherlands":"nl","the netherlands":"nl","netherlands kingdom of the":"nl","new caledonia":"nc","new zealand":"nz","norfolk island":"nf","the republic of north macedonia":"mk","north macedonia":"mk","northern mariana islands":"mp","norway":"no","state of palestine":"ps","palestine":"ps","papua new guinea":"pg","philippines":"ph","pitcairn islands":"pn","poland":"pl","qatar":"qa","romania":"ro","russian federation":"ru","russia":"ru","rwanda":"rw","saint helena":"sh","saint kitts and nevis":"kn","saint lucia":"lc","saint pierre and miquelon":"pm","saint vincent and the grenadines":"vc","sao tome and principe":"st","saudi arabia":"sa","sierra leone":"sl","singapore":"sg","slovakia":"sk","slovenia":"si","solomon islands":"sb","south africa":"za","south georgia and the south sandwich islands":"gs","spain":"es","svalbard and jan mayen":"sj","eswatini":"sz","sweden":"se","switzerland":"ch","syrian arab republic":"sy","taiwan province of china":"tw","tajikistan":"tj","united republic of tanzania":"tz","thailand":"th","trinidad and tobago":"tt","tunisia":"tn","turkiye":"tr","turkey":"tr","turks and caicos islands":"tc","ukraine":"ua","united arab emirates":"ae","uae":"ae","united kingdom":"gb","uk":"gb","great britain":"gb","united states of america":"us","united states":"us","usa":"us","us":"us","united states minor outlying islands":"um","virgin islands british":"vg","virgin islands us":"vi","wallis and futuna":"wf","western sahara":"eh","zimbabwe":"zw","aland islands":"ax","bonaire sint eustatius and saba":"bq","isle of man":"im","saint martin french part":"mf","sint maarten dutch part":"sx","south sudan":"ss","eeuu":"us","ee uu":"us","inglaterra":"gb","england":"gb","escocia":"gb","scotland":"gb","gales":"gb","wales":"gb","holanda":"nl"}};
+const FLAGS = /*FLAGS*/null;   // filled in for the online preview only; otherwise flags/xx.svg is used
+const normName = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, '').trim();
+const countryIndex = countries.features.filter(f => f.geometry && f.id).map(f => {
+  const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+  let b = [180, 90, -180, -90]; polys.forEach(p => p[0].forEach(([x, y]) => { b = [Math.min(b[0], x), Math.min(b[1], y), Math.max(b[2], x), Math.max(b[3], y)]; }));
+  return { cc: COUNTRY_CODES.N2A[String(f.id).padStart(3, '0')], polys, b };
+}).filter(c => c.cc);
+function inRing(x, y, r) { let ins = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+  const [xi, yi] = r[i], [xj, yj] = r[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) ins = !ins; } return ins; }
+function countryAt(lon, lat) {
+  for (const x of [lon, lon + 360]) for (const c of countryIndex) {
+    if (x < c.b[0] || x > c.b[2] || lat < c.b[1] || lat > c.b[3]) continue;
+    if (c.polys.some(p => inRing(x, lat, p[0]) && !p.slice(1).some(h => inRing(x, lat, h)))) return c.cc;
+  }
+  let best = null, bd = 1.0;   // on a coast or a small island: nearest country within ~100 km
+  for (const c of countryIndex) {
+    if (lon < c.b[0] - 1 || lon > c.b[2] + 1 || lat < c.b[1] - 1 || lat > c.b[3] + 1) continue;
+    for (const p of c.polys) for (const [x, y] of p[0]) { const d = Math.hypot(x - lon, y - lat); if (d < bd) { bd = d; best = c.cc; } }
+  }
+  return best;
+}
+function countryCode(t) {
+  if (t.country) { const v = String(t.country).trim(); if (/^[a-z]{2}$/i.test(v)) return v.toLowerCase(); const n = COUNTRY_CODES.NM[normName(v)]; if (n) return n; }
+  return countryAt(t.lon, t.lat);
+}
+
 const style = {
   version: 8,
   projection: { type: 'globe' },
@@ -524,7 +560,6 @@ const style = {
   sources: {
     countries: { type: 'geojson', data: countries },
     route: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
-    areas: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
   },
   layers: [{ id: 'ocean', type: 'background', paint: { 'background-color': '#1d3d5c' } }],
 };
@@ -539,11 +574,13 @@ if (CONFIG.basemap === 'satellite') {
   style.layers.push({ id: 'sat', type: 'raster', source: 'sat' });
   style.layers.push({ id: 'sat-borders', type: 'line', source: 'countries', paint: { 'line-color': 'rgba(255,255,255,.35)', 'line-width': .6 } });
 }
-const areaColor = ['coalesce', ['get', 'color'], CONFIG.areaColor];
-style.layers.push({ id: 'areas-fill', type: 'fill', source: 'areas', filter: ['==', ['geometry-type'], 'Polygon'],
-  paint: { 'fill-color': areaColor, 'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.45, 0.28] } });
-style.layers.push({ id: 'areas-outline', type: 'line', source: 'areas', filter: ['==', ['geometry-type'], 'Polygon'],
-  paint: { 'line-color': areaColor, 'line-width': 2 } });
+if (CONFIG.showRegions && typeof REGIONS_TOPO !== 'undefined' && REGIONS_TOPO) {
+  style.sources.regions = { type: 'geojson', data: topojson.feature(REGIONS_TOPO, REGIONS_TOPO.objects[Object.keys(REGIONS_TOPO.objects)[0]]), attribution: 'Natural Earth' };
+  style.layers.splice(style.layers.findIndex(l => l.id === 'borders'), 0, { id: 'regions', type: 'line', source: 'regions', minzoom: 2.3,
+    paint: { 'line-color': CONFIG.basemap === 'satellite' ? 'rgba(255,255,255,.25)' : '#a68d66',
+      'line-width': ['interpolate', ['linear'], ['zoom'], 2.3, .3, 5, .6, 8, 1],
+      'line-opacity': ['interpolate', ['linear'], ['zoom'], 2.3, 0, 3.2, .9], 'line-dasharray': [3, 2] } });
+}
 style.layers.push({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round' },
   paint: { 'line-color': '#f2c26b', 'line-width': 2.5, 'line-dasharray': [1.5, 1.5], 'line-opacity': .9 } });
 
@@ -654,14 +691,26 @@ function yearsText(t) {
   if (t.type === 'lived') return `${t.start}–${t.end == null ? L().now : t.end}`;
   return t.endY !== t.start ? `${t.start}–${t.endY}` : `${t.start}`;
 }
+function flagHTML(t) {
+  const cc = t.cc;
+  if (!cc) return '🌍';
+  const src = FLAGS ? (FLAGS[cc] ? svgURI(FLAGS[cc]) : null) : `flags/${cc}.svg`;
+  return src ? `<img src="${src}" alt="${cc.toUpperCase()}" onerror="this.replaceWith('🌍')">` : '🌍';
+}
 function renderList(trips) {
-  document.getElementById('listTitle').textContent = state.all ? L().allPlaces(trips.length) : L().inYear(state.year);
+  const homesTab = state.tab === 'homes';
+  document.getElementById('tabTrips').classList.toggle('on', !homesTab);
+  document.getElementById('tabHomes').classList.toggle('on', homesTab);
+  const sub = document.getElementById('listSub');
+  sub.textContent = state.all ? '' : L().inYear(state.year); sub.style.display = state.all ? 'none' : 'block';
+  const shown = trips.filter(t => (t.type === 'lived') === homesTab);
   const list = document.getElementById('list');
-  if (!trips.length) { list.innerHTML = `<div class="empty">${L().none}</div>`; }
-  else list.innerHTML = trips.map(t => `<button class="item" data-id="${t.id}">
-      <span class="ic ${t.type === 'lived' ? 'home' : ''}">${t.type === 'lived' ? '🏠' : t.geom ? '🗺️' : '✈️'}</span>
-      <span class="tx"><div class="nm">${esc(tr(t.place))}</div><div class="yr">${t.type === 'lived' ? L().lived : L().visited} · ${yearsText(t)}</div></span>
-      <span class="faces">${t.people.slice(0, 4).map(id => `<img src="${PERSON[id].img}" alt="">`).join('')}</span></button>`).join('');
+  if (!shown.length) { list.innerHTML = `<div class="empty">${homesTab ? L().noneHomes : L().noneTrips}</div>`; }
+  else list.innerHTML = shown.map(t => {
+    const who = t.people.length ? t.people.map(id => tr(PERSON[id].name)).join(', ') : L().solo;
+    return `<button class="item" data-id="${t.id}"><span class="flag">${flagHTML(t)}</span>
+      <span class="tx"><div class="nm">${esc(tr(t.place))}</div><div class="yr">${yearsText(t)} · ${esc(who)}</div></span></button>`;
+  }).join('');
   list.querySelectorAll('.item').forEach(b => b.onclick = () => {
     const t = TRIPS[+b.dataset.id]; openCard(visibleTrips().filter(x => x.key === t.key), t.id);
   });
@@ -843,8 +892,9 @@ function applyLang() {
   document.getElementById('tWith').textContent = L().with;
   document.getElementById('clearPeople').textContent = L().clear;
   document.getElementById('allBtn').textContent = L().allBtn;
+  document.getElementById('tabTrips').textContent = L().tabTrips;
+  document.getElementById('tabHomes').textContent = L().tabHomes;
   document.getElementById('listToggle').textContent = '☰ ' + L().places;
-  document.getElementById('legend').innerHTML = `<span><i class="lh"></i>${L().home}</span><span><i class="lv"></i>${L().trip}</span>${TRIPS.some(t => t.geom) ? `<span><i class="la"></i>${L().area}</span>` : ''}${CONFIG.showHomeRoute ? `<span><i class="lr"></i>${L().route}</span>` : ''}`;
   document.querySelectorAll('#lang button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
   render();
   const card = document.getElementById('card');
@@ -852,6 +902,7 @@ function applyLang() {
 }
 document.getElementById('lang').style.display = CONFIG.showLanguageSwitch ? '' : 'none';
 document.querySelectorAll('#lang button').forEach(b => b.onclick = () => { lang = b.dataset.l; applyLang(); });
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; render(); });
 document.getElementById('listToggle').onclick = () => document.getElementById('listpanel').classList.toggle('show');
 document.getElementById('sGo').onclick = () => {
   document.getElementById('splash').classList.add('gone');
