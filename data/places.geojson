@@ -1,0 +1,254 @@
+{
+ "type": "FeatureCollection",
+ "name": "places",
+ "crs": {
+  "type": "name",
+  "properties": {
+   "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+  }
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Colmenar Viejo",
+    "type": "lived",
+    "start": 1993,
+    "end": null,
+    "with": "familia",
+    "story": "Nuestra casa de siempre. (Texto de ejemplo — escribe aquí su historia.)",
+    "photos": "demo:1;demo:2;demo:3",
+    "captions": "Pie de foto de ejemplo;;",
+    "video": "demo",
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -3.7676,
+     40.659
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "San Luis, Argentina",
+    "type": "lived",
+    "start": 2000,
+    "end": 2002,
+    "with": "familia",
+    "story": "Los años en Argentina. (Ejemplo)",
+    "photos": "demo:1;demo:2",
+    "captions": null,
+    "video": null,
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -66.3378,
+     -33.3017
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Gurgaon, India",
+    "type": "lived",
+    "start": 2012,
+    "end": 2016,
+    "with": "familia",
+    "story": "Los años en la India, cerca de Nueva Delhi. (Ejemplo)",
+    "photos": "demo:1;demo:2",
+    "captions": null,
+    "video": null,
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     77.0266,
+     28.4595
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Lisboa",
+    "type": "visited",
+    "start": 1993,
+    "end": null,
+    "with": "familia",
+    "story": "El tranvía 28 y los pasteles de Belém. (Ejemplo)",
+    "photos": "demo:1;demo:2",
+    "captions": null,
+    "video": null,
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -9.1393,
+     38.7223
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Tenerife",
+    "type": "visited",
+    "start": 1998,
+    "end": null,
+    "with": "familia",
+    "story": "Subimos al Teide al amanecer. (Ejemplo)",
+    "photos": "demo:1;demo:2",
+    "captions": null,
+    "video": null,
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -16.6291,
+     28.2916
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Roma",
+    "type": "visited",
+    "start": 2002,
+    "end": null,
+    "with": "hermanas",
+    "story": "Viaje de hermanas. Demasiados helados. (Ejemplo)",
+    "photos": "demo:1;demo:2;demo:3",
+    "captions": null,
+    "video": null,
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     12.4964,
+     41.9028
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Nueva York",
+    "type": "visited",
+    "start": 2010,
+    "end": null,
+    "with": "papa",
+    "story": "Nuestro 25 aniversario. (Ejemplo)",
+    "photos": "demo:1;demo:2",
+    "captions": null,
+    "video": null,
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -74.006,
+     40.7128
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Marrakech",
+    "type": "visited",
+    "start": 2014,
+    "end": null,
+    "with": "cunaos",
+    "story": "Con los cuñaos, regateando en el zoco. (Ejemplo)",
+    "photos": "demo:1;demo:2",
+    "captions": null,
+    "video": null,
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -7.9811,
+     31.6295
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "París",
+    "type": "visited",
+    "start": 2018,
+    "end": null,
+    "with": "clau",
+    "story": "Volví a París, esta vez con Clau. (Ejemplo)",
+    "photos": "demo:1;demo:2",
+    "captions": null,
+    "video": null,
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     2.3522,
+     48.8566
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Londres",
+    "type": "visited",
+    "start": 2019,
+    "end": null,
+    "with": "clau",
+    "story": "Visitando a Clau en Inglaterra. (Ejemplo)",
+    "photos": "demo:1;demo:2",
+    "captions": null,
+    "video": null,
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -0.1278,
+     51.5074
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Granada",
+    "type": "visited",
+    "start": 2022,
+    "end": null,
+    "with": "",
+    "story": "Mi primer viaje sola. La Alhambra al atardecer. (Ejemplo)",
+    "photos": "demo:1;demo:2",
+    "captions": null,
+    "video": null,
+    "color": null
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -3.5986,
+     37.1773
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El mundo de Mamá</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.css">
+<style>
+:root{
+  --ink:#f6efe4; --muted:#c9bfae; --panel:rgba(20,24,38,.78); --panel-solid:#171b2b;
+  --line:rgba(255,255,255,.12); --accent:#e8875b; --accent2:#f2c26b; --home:#e8875b;
+  --serif:'Fraunces',Georgia,serif; --sans:'DM Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#070a14;color:var(--ink);font-family:var(--sans)}
+#space{position:fixed;inset:0;background:
+  radial-gradient(ellipse at 50% 55%,#1b2340 0%,#0b0f1e 55%,#05070e 100%)}
+#stars{position:fixed;inset:0;pointer-events:none;opacity:.7}
+#map{position:fixed;inset:0}
+.maplibregl-canvas{outline:none}
+.maplibregl-ctrl-attrib{background:rgba(0,0,0,.35)!important;color:#aaa}
+.maplibregl-ctrl-attrib a{color:#ccc}
+button{font-family:inherit;color:inherit;cursor:pointer}
+.glass{background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+
+/* title */
+#titlecard{position:fixed;top:18px;left:18px;padding:14px 20px 14px 18px;max-width:320px;z-index:5}
+#titlecard h1{font-family:var(--serif);font-weight:600;font-size:28px;margin:0;line-height:1.05;letter-spacing:-.01em}
+#titlecard p{margin:4px 0 0;color:var(--muted);font-family:var(--serif);font-style:italic;font-size:15px}
+
+/* lang */
+#lang{position:fixed;top:18px;right:18px;z-index:6;display:flex;padding:4px;gap:2px;border-radius:999px}
+#lang button{background:none;border:0;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:.05em;color:var(--muted)}
+#lang button.on{background:var(--ink);color:#1a1d2b}
+
+/* people */
+#people{position:fixed;left:18px;top:120px;z-index:5;padding:12px;width:84px;display:flex;flex-direction:column;align-items:center;gap:10px}
+#people .lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:center;line-height:1.2}
+.pbtn{position:relative;background:none;border:0;padding:0;display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.9;transition:transform .15s,opacity .15s}
+.pbtn img{width:46px;height:46px;border-radius:50%;border:3px solid transparent;display:block;transition:border-color .15s, filter .15s}
+.pbtn span{font-size:11px;color:var(--muted);max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbtn:hover{transform:scale(1.07)}
+#people.filtering .pbtn{opacity:.45}
+#people.filtering .pbtn img{filter:grayscale(.7)}
+#people .pbtn.on{opacity:1}
+#people .pbtn.on img{border-color:var(--accent2);filter:none}
+#people .pbtn.on span{color:var(--ink)}
+#clearPeople{font-size:11px;background:none;border:1px solid var(--line);border-radius:999px;padding:4px 8px;color:var(--muted);display:none}
+#people.filtering #clearPeople{display:block}
+
+/* list panel */
+#listpanel{position:fixed;right:18px;top:70px;bottom:150px;width:290px;z-index:5;display:flex;flex-direction:column;overflow:hidden}
+#listpanel header{padding:16px 18px 10px;border-bottom:1px solid var(--line)}
+#listpanel h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:0}
+#stats{font-size:12.5px;color:var(--accent2);margin-top:6px;display:none;line-height:1.4}
+#list{overflow:auto;padding:8px;flex:1}
+.item{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;padding:9px 10px;border-radius:12px}
+.item:hover{background:rgba(255,255,255,.07)}
+.item .ic{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:15px;background:rgba(255,255,255,.08)}
+.item .ic.home{background:var(--home);color:#fff}
+.item .tx{flex:1;min-width:0}
+.item .nm{font-weight:500;font-size:14.5px}
+.item .yr{font-size:12px;color:var(--muted)}
+.faces{display:flex;flex:none}
+.faces img{width:22px;height:22px;border-radius:50%;border:2px solid var(--panel-solid);margin-left:-7px;background:#333}
+.faces img:first-child{margin-left:0}
+.empty{color:var(--muted);font-size:14px;padding:18px 12px;font-style:italic;font-family:var(--serif)}
+#listToggle{display:none}
+
+/* timeline */
+#timeline{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:5;width:min(860px,calc(100% - 36px));padding:14px 20px 16px;display:grid;grid-template-columns:auto 1fr auto;gap:6px 18px;align-items:center}
+#yearBig{font-family:var(--serif);font-size:44px;font-weight:600;line-height:1;min-width:120px;letter-spacing:-.02em}
+#yearBig.all{font-size:26px;font-style:italic;font-weight:400}
+#ctrls{display:flex;gap:8px;align-items:center;justify-self:end}
+.cbtn{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.06);display:grid;place-items:center;font-size:15px}
+.cbtn:hover{background:rgba(255,255,255,.14)}
+#play{width:48px;height:48px;background:var(--accent);border:0;color:#fff;font-size:18px}
+#allBtn{white-space:nowrap;border-radius:999px;width:auto;padding:0 14px;font-size:13px;font-weight:500}
+#allBtn.on{background:var(--ink);color:#1a1d2b}
+#trackWrap{position:relative;height:34px}
+#ticks{position:absolute;left:9px;right:9px;top:0;height:34px;pointer-events:none}
+#ticks i{position:absolute;top:22px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--accent2);opacity:.85}
+#ticks b{position:absolute;top:0;font-weight:400;font-size:11px;color:var(--muted);transform:translateX(-50%)}
+#slider{position:absolute;left:0;right:0;top:12px;width:100%;-webkit-appearance:none;appearance:none;background:transparent;height:24px;margin:0}
+#slider::-webkit-slider-runnable-track{height:4px;background:rgba(255,255,255,.18);border-radius:4px}
+#slider::-moz-range-track{height:4px;background:rgba(255,255,255,.18);border-radius:4px}
+#slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--ink);margin-top:-7px;box-shadow:0 0 0 4px rgba(232,135,91,.5)}
+#slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--ink);border:0;box-shadow:0 0 0 4px rgba(232,135,91,.5)}
+#timeline.allmode #slider::-webkit-slider-thumb{opacity:.35;box-shadow:none}
+#timeline.allmode #slider::-moz-range-thumb{opacity:.35;box-shadow:none}
+#legend{grid-column:1 / -1;display:flex;gap:16px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+#legend span{display:flex;align-items:center;gap:6px}
+#legend .lh{width:12px;height:12px;border-radius:50%;background:var(--home)}
+#legend .lv{width:12px;height:12px;border-radius:50%;background:#fff}
+#legend .lr{width:18px;height:0;border-top:2px dashed var(--accent2)}
+
+/* markers */
+.mk{cursor:pointer;transition:opacity .3s, transform .15s;will-change:transform}
+.mk:hover{z-index:3}
+.mk[style*="opacity: 0"]{pointer-events:none}
+.mk-home{width:36px;height:36px;border-radius:50%;background:var(--home);border:3px solid #fff;display:grid;place-items:center;box-shadow:0 3px 12px rgba(0,0,0,.45),0 0 0 6px rgba(232,135,91,.25);font-size:16px}
+.mk-visit{display:flex;align-items:center;background:#fff;border-radius:999px;padding:3px;box-shadow:0 3px 12px rgba(0,0,0,.45);position:relative}
+.mk-visit:after{content:'';position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:#fff}
+.mk-visit img{width:26px;height:26px;border-radius:50%;margin-left:-8px;border:2px solid #fff;background:#ddd}
+.mk-visit img:first-child{margin-left:0}
+.mk-visit .more{font-size:11px;font-weight:700;color:#333;padding:0 5px 0 3px}
+.mk-visit .solo{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:14px;background:#f3ead9}
+.mk-cluster{width:42px;height:42px;border-radius:50%;background:#fff;color:#1a1d2b;display:grid;place-items:center;font-weight:700;font-size:16px;font-family:var(--serif);box-shadow:0 3px 12px rgba(0,0,0,.45),0 0 0 6px rgba(255,255,255,.28);transition:transform .15s}
+.mk-cluster.has-home{box-shadow:0 3px 12px rgba(0,0,0,.45),0 0 0 4px var(--home),0 0 0 9px rgba(232,135,91,.25)}
+.mk:hover .mk-cluster{transform:scale(1.12)}
+#map.far .mk .nm{display:none}
+#map.far .mk:hover .nm{display:block}
+.mk .nm{position:absolute;top:100%;left:50%;transform:translate(-50%,8px);white-space:nowrap;font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px #000,0 0 8px #000;pointer-events:none}
+.mk:hover .mk-home,.mk:hover .mk-visit{transform:scale(1.12)}
+.mk-home,.mk-visit{transition:transform .15s}
+
+/* card */
+#card{position:fixed;z-index:8;right:326px;top:70px;bottom:150px;width:400px;display:none;flex-direction:column;overflow:hidden;background:rgba(23,27,43,.95)}
+#card.open{display:flex;animation:pop .25s ease}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+#cardClose{position:absolute;top:10px;right:10px;z-index:3;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.5);font-size:16px}
+#cardBody{overflow:auto;flex:1}
+.visit{padding-bottom:18px;border-bottom:1px solid var(--line)}
+.visit:last-child{border-bottom:0}
+.carousel{position:relative;aspect-ratio:10/7;background:#0c0f1a;overflow:hidden}
+.carousel img{width:100%;height:100%;object-fit:cover;display:block}
+.carousel .nav{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.45);font-size:16px}
+.carousel .prev{left:10px}.carousel .next{right:10px}
+.carousel .dots{position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:6px}
+.carousel .dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.45)}
+.carousel .dots i.on{background:#fff}
+.carousel .cap{position:absolute;left:0;right:0;bottom:0;padding:26px 14px 24px;background:linear-gradient(transparent,rgba(0,0,0,.6));font-size:13px;font-style:italic;font-family:var(--serif)}
+.vhead{padding:16px 20px 0}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.1);color:var(--muted)}
+.badge.home{background:rgba(232,135,91,.22);color:#ffb38e}
+.vhead h3{font-family:var(--serif);font-weight:600;font-size:30px;margin:10px 0 2px;line-height:1.05}
+.vhead .when{color:var(--muted);font-size:14px}
+.withrow{display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px 0}
+.chip{display:flex;align-items:center;gap:7px;padding:3px 12px 3px 3px;border-radius:999px;background:rgba(255,255,255,.08);font-size:13px}
+.chip img{width:28px;height:28px;border-radius:50%}
+.chip small{color:var(--muted)}
+.story{padding:14px 20px 0;font-family:var(--serif);font-size:17px;line-height:1.55;color:#efe7da;white-space:pre-line}
+.video{margin:16px 20px 0;border-radius:12px;overflow:hidden;background:#0c0f1a;aspect-ratio:16/9;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:14px;border:1px dashed var(--line)}
+.video iframe,.video video{width:100%;height:100%;border:0;display:block}
+.video a{color:var(--accent2)}
+
+/* toast + drop */
+#toast{position:fixed;left:50%;top:18px;transform:translate(-50%,-20px);z-index:30;max-width:min(560px,calc(100% - 40px));background:var(--panel-solid);border:1px solid var(--line);border-radius:14px;padding:12px 16px;font-size:14px;line-height:1.4;opacity:0;pointer-events:none;transition:.3s;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#dropHint{position:fixed;inset:14px;z-index:29;border:3px dashed var(--accent2);border-radius:24px;display:none;place-items:center;font-family:var(--serif);font-size:34px;color:var(--accent2);background:rgba(7,10,20,.6);pointer-events:none}
+body.dragging #dropHint{display:grid}
+#legend .la{width:14px;height:10px;border-radius:3px;background:rgba(232,135,91,.45);border:2px solid var(--home)}
+
+/* splash */
+#splash{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:radial-gradient(ellipse at center,rgba(7,10,20,.35),rgba(7,10,20,.85));transition:opacity .8s}
+#splash.gone{opacity:0;pointer-events:none}
+#splash .in{text-align:center;padding:30px;max-width:560px}
+#splash .kick{font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent2)}
+#splash h1{font-family:var(--serif);font-weight:600;font-size:clamp(44px,8vw,76px);margin:12px 0 6px;line-height:1;letter-spacing:-.02em}
+#splash p{font-family:var(--serif);font-style:italic;font-size:20px;color:var(--muted);margin:0 0 28px}
+#splash button{background:var(--accent);border:0;border-radius:999px;padding:14px 30px;font-size:16px;font-weight:700;color:#fff;box-shadow:0 8px 30px rgba(232,135,91,.4)}
+#splash button:hover{transform:translateY(-1px)}
+
+@media (max-width:900px){
+  #titlecard{padding:10px 14px;max-width:60vw}
+  #titlecard h1{font-size:20px}#titlecard p{font-size:12px}
+  #people{top:auto;bottom:178px;left:10px;width:auto;flex-direction:row;padding:8px 10px;max-width:calc(100% - 20px);overflow-x:auto}
+  #people .lbl{display:none}
+  .pbtn img{width:38px;height:38px}
+  #listpanel{display:none;left:10px;right:10px;width:auto;top:70px;bottom:250px}
+  #listpanel.show{display:flex}
+  #listToggle{display:block;position:fixed;top:70px;right:10px;z-index:6;border-radius:999px;padding:8px 14px;font-size:13px}
+  #card{left:0;right:0;bottom:0;top:30%;width:auto;border-radius:18px 18px 0 0}
+  #timeline{bottom:10px;width:calc(100% - 20px);padding:10px 14px 12px;grid-template-columns:auto 1fr;gap:6px 10px}
+  #yearBig{font-size:32px;min-width:0}
+  #ctrls{grid-column:2}
+  #trackWrap{grid-column:1 / -1}
+  .cbtn{width:36px;height:36px}#play{width:42px;height:42px}
+}
+</style>
+</head>
+<body>
+<div id="space"></div>
+<canvas id="stars"></canvas>
+<div id="map"></div>
+
+<div id="titlecard" class="glass"><h1 id="tTitle"></h1><p id="tSub"></p></div>
+<div id="lang" class="glass"><button data-l="es">ES</button><button data-l="en">EN</button></div>
+
+<div id="people" class="glass"><div class="lbl" id="tWith"></div><div id="peopleList" style="display:contents"></div><button id="clearPeople"></button></div>
+
+<button id="listToggle" class="glass"></button>
+<aside id="listpanel" class="glass">
+  <header><h2 id="listTitle"></h2><div id="stats"></div></header>
+  <div id="list"></div>
+</aside>
+
+<section id="card" class="glass"><button id="cardClose" aria-label="close">✕</button><div id="cardBody"></div></section>
+
+<div id="timeline" class="glass">
+  <div id="yearBig"></div>
+  <div id="ctrls">
+    <button class="cbtn" id="prev" aria-label="previous year">◀</button>
+    <button class="cbtn" id="play" aria-label="play">▶</button>
+    <button class="cbtn" id="next" aria-label="next year">▶</button>
+    <button class="cbtn" id="allBtn"></button>
+  </div>
+  <div id="trackWrap" style="grid-column:1 / -1"><div id="ticks"></div><input type="range" id="slider"></div>
+  <div id="legend"></div>
+</div>
+
+<div id="toast"></div>
+<div id="dropHint">⤓ GeoJSON</div>
+<div id="splash"><div class="in"><div class="kick" id="sKick"></div><h1 id="sTitle"></h1><p id="sDed"></p><button id="sGo"></button></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script src="world.js"></script>
+<script>
+/* =====================================================================
+   ✏️  EDIT EVERYTHING IN THIS BLOCK — this is all you need to change.
+   ===================================================================== */
+
+const CONFIG = {
+  title:      'El mundo de Mamá',
+  subtitle:   'Una vida en viajes',   // line under the title ('' = none)
+  dedication: '',   // optional line on the opening screen
+  startYear: 1993,  // first year on the timeline
+  showHomeRoute: false, // true = dashed line joining her homes in order
+  // Trips are read from these GeoJSON files (edit them in QGIS — see README).
+  // places = points, areas = polygons (e.g. a region she toured).
+  dataFiles: ['data/places.geojson', 'data/areas.geojson'],
+  areaColor: '#e8875b',   // default colour for areas (a feature's own `color` field wins)
+  defaultLang: 'es',
+  showLanguageSwitch: false, // true = ES/EN button (then add name_en / story_en / captions_en in the data)
+  // 'embedded' = drawn globe (works anywhere, including this preview)
+  // 'satellite' = real satellite imagery (use once hosted on GitHub Pages / Netlify)
+  basemap: 'satellite',
+  // true once hosted: YouTube links play inside the card. false = shows a link.
+  embedVideos: true,
+  showSoloButton: false, // true = adds a 'Sola' button to filter trips she took alone
+  playSpeedMs: 1500,      // pause on years where something new happens
+  playSpeedQuietMs: 350,  // pause on years where nothing new happens
+  clusterRadiusPx: 46,    // pins closer than this (in pixels) merge into a numbered bubble
+  clusterUntilZoom: 7,    // from this zoom level in, pins never merge
+  labelsFromZoom: 3,      // place names show from this zoom level in (always on hover)
+};
+
+// The people who travelled with her (each one gets a button in the 'Con quién' strip).
+// Use `photo: 'people/papa.jpg'` for a real
+// headshot, or `look: {...}` for an illustrated avatar.
+//   look options → skin, hair (colours), style: short|long|bob|curly|bun|bald,
+//                  glasses: true/false, beard: true/false, shirt, bg (colours)
+// Mamá's face — used in every shared avatar below, so change it once here.
+const MAMA = { skin: '#dcb48a', hair: '#2a1c16', style: 'curly', shirt: '#c25b4a' };
+// Papá's face — same idea.
+const PAPA = { skin: '#e9b98f', hair: '#4a3b33', style: 'short', glasses: true, beard: true, shirt: '#3d6b8c' };
+
+const PEOPLE = [
+  // Shared avatars: `looks: [ ... ]` draws 2 to 4 faces in one circle (instead of a single `look`).
+  // With 2 faces: left, right. With 3: the middle one is in front. With 4: first two at the back, last two in front.
+  // Background colour: `bg`.
+  { id: 'papa', name: 'Papá', rel: 'con Papá', bg: '#9cc3d5',
+    looks: [ MAMA,
+             PAPA ] },
+  { id: 'clau', name: 'Clau', rel: 'con Clau', bg: '#c5dcb4',
+    looks: [ MAMA,
+             { skin: '#f0c7a0', hair: '#2b1d16', style: 'long', shirt: '#5f8f5a' } ] },                                // Clau
+  { id: 'familia', name: 'Familia', rel: 'Mamá, Papá, Clau y Pablo', bg: '#cfe0d0',
+    looks: [ MAMA,
+             PAPA,
+             { skin: '#f0c7a0', hair: '#2b1d16', style: 'long', shirt: '#5f8f5a' },                                   // Clau
+             { skin: '#ecbd96', hair: '#3a2a20', style: 'short', shirt: '#d49a3a' } ] },                              // Pablo
+  { id: 'hermanas', name: 'Sisters', rel: 'con sus hermanas', bg: '#f3d3c4',
+    looks: [ { skin: '#e3b088', hair: '#6b3e26', style: 'bob', shirt: '#b3546a' },                                    // hermana 1
+             MAMA,                                                                                                     // Mamá (middle, in front)
+             { skin: '#e8b892', hair: '#7a5233', style: 'long', shirt: '#7a5ca8' } ] },                               // hermana 2
+  // A drawing instead of faces: art: 'pistachio-yogurt'
+  { id: 'cunaos', name: 'Cuñaos', rel: 'tres parejas', art: 'pistachio-yogurt' },
+  { id: 'inigoana', name: 'Iñigo y Ana', rel: 'Mamá, Papá, Iñigo y Ana', bg: '#efe0b8',
+    looks: [ { skin: '#e6b38a', hair: '#8c8c8c', style: 'short', beard: true, shirt: '#2f5d50' },   // Iñigo (back)
+             { skin: '#f1c9a5', hair: '#a8693d', style: 'bun', glasses: true, shirt: '#9b4f8a' }, // Ana (back)
+             MAMA,                                                                                  // Mamá (front)
+             PAPA ] },                                                                              // Papá (front)
+];
+
+// Optional shortcuts: a name here expands to several people in `with`.
+// e.g.  primos: ['ana', 'luis'],   then  with: ['primos']
+const GROUPS = {
+};
+
+// Trips now live in the GeoJSON files listed in CONFIG.dataFiles (edit them in QGIS).
+// Fields: name, type ('lived' | 'visited'), start, end (empty = still lives there / same year),
+//         with ('papa;clau'), story, photos ('photos/a.jpg;photos/b.jpg'),
+//         captions (same order as photos, ';'-separated), video, color (areas).
+// You can also type extra trips by hand here (same format as before: place, lat, lon, type, start, end, with, story, photos, video).
+const MANUAL_TRIPS = [
+];
+
+/* =====================================================================
+   Nothing below needs editing.
+   ===================================================================== */
+
+const NOW = new Date().getFullYear();
+const I18N = {
+  es: { with: 'Con quién', clear: 'Ver todos', all: 'Toda su vida', allBtn: 'Ver todo', inYear: y => `En ${y}`,
+        allPlaces: n => `Todos los lugares · ${n}`, none: 'Ningún lugar este año con este filtro.',
+        lived: 'Vivió aquí', visited: 'Viaje', solo: 'Sola', go: 'Empezar el viaje', kick: 'Un regalo',
+        home: 'Su casa', trip: 'Viaje', route: 'De casa en casa', places: 'Lugares',
+        stat: (names, n, first) => `Con ${names}: ${n} ${n === 1 ? 'lugar' : 'lugares'} · desde ${first}`,
+        nPlaces: n => `${n} lugares`, area: 'Zona', loaded: (n, f) => `Cargados ${n} lugares de ${f} ${f === 1 ? 'archivo' : 'archivos'}`, badFile: 'No se pudo leer ese archivo GeoJSON.', noFiles: 'No se pudieron leer los archivos de datos. Si abriste la página directamente desde tu ordenador, arrastra aquí tus archivos .geojson (o usa un servidor local — ver README).', now: 'hoy', videoDemo: '🎬 Aquí irá un vídeo', watch: '▶ Ver el vídeo' },
+  en: { with: 'Who with', clear: 'Show all', all: 'Her whole life', allBtn: 'Show all', inYear: y => `In ${y}`,
+        allPlaces: n => `All places · ${n}`, none: 'No places this year with this filter.',
+        lived: 'Lived here', visited: 'Trip', solo: 'Solo', go: 'Start the journey', kick: 'A gift',
+        home: 'Home', trip: 'Trip', route: 'Home to home', places: 'Places',
+        stat: (names, n, first) => `With ${names}: ${n} ${n === 1 ? 'place' : 'places'} · since ${first}`,
+        nPlaces: n => `${n} places`, area: 'Area or route', loaded: (n, f) => `Loaded ${n} places from ${f} ${f === 1 ? 'file' : 'files'}`, badFile: 'Could not read that GeoJSON file.', noFiles: 'Could not read the data files. If you opened the page straight from your computer, drag your .geojson files here (or use a local server — see README).', now: 'now', videoDemo: '🎬 A video will go here', watch: '▶ Watch the video' },
+};
+
+let lang = CONFIG.defaultLang;
+const tr = v => (v && typeof v === 'object' && !Array.isArray(v)) ? (v[lang] ?? v.es ?? v.en ?? '') : (v ?? '');
+const L = () => I18N[lang];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- avatars ---------- */
+function faceParts(o = {}) {
+  const skin = o.skin || '#e8b892', hair = o.hair || '#3a2a20', shirt = o.shirt || '#6a7fa8', bg = o.bg || '#cdd6e8';
+  let back = '', front = '';
+  switch (o.style) {
+    case 'long': back = `<path d="M17 30 C16 12 48 12 47 30 L49 54 L15 54Z" fill="${hair}"/>`;
+      front = `<path d="M19 30 C19 15 45 15 45 30 C41 22 33 21 27 23 C23 24 21 27 19 30Z" fill="${hair}"/>`; break;
+    case 'bob': back = `<path d="M17 30 C16 12 48 12 47 30 L47 42 L17 42Z" fill="${hair}"/>`;
+      front = `<path d="M19 29 C19 15 45 15 45 29 C40 24 30 23 19 29Z" fill="${hair}"/>`; break;
+    case 'curly': front = [[21, 22], [27, 16], [35, 15], [42, 20], [19, 29], [45, 28], [31, 14]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6.5" fill="${hair}"/>`).join(''); break;
+    case 'bun': front = `<circle cx="32" cy="12" r="6.5" fill="${hair}"/><path d="M19 30 C19 15 45 15 45 30 C41 22 23 22 19 30Z" fill="${hair}"/>`; break;
+    case 'bald': front = `<path d="M19 31 C18 26 20 24 21 26Z M45 31 C46 26 44 24 43 26Z" fill="${hair}"/>`; break;
+    default: front = `<path d="M19 30 C18 15 46 15 45 30 C44 24 40 21 32 21 C25 21 21 24 19 30Z" fill="${hair}"/>`;
+  }
+  const beard = o.beard ? `<path d="M20 33 C21 47 43 47 44 33 C42 40 22 40 20 33Z" fill="${hair}" opacity=".95"/>` : '';
+  const glasses = o.glasses ? `<g fill="none" stroke="#2a2a2a" stroke-width="1.4"><circle cx="27" cy="31.5" r="4"/><circle cx="37" cy="31.5" r="4"/><path d="M31 31.5 H33"/></g>` : '';
+  return `${back}
+    <rect x="28" y="40" width="8" height="8" fill="${skin}"/><path d="M10 66 C10 48 54 48 54 66Z" fill="${shirt}"/>
+    <circle cx="32" cy="31" r="13" fill="${skin}"/>${beard}${front}
+    <circle cx="27" cy="31.5" r="1.7" fill="#2b2b2b"/><circle cx="37" cy="31.5" r="1.7" fill="#2b2b2b"/>
+    <circle cx="23.5" cy="36" r="2.4" fill="#e66" opacity=".22"/><circle cx="40.5" cy="36" r="2.4" fill="#e66" opacity=".22"/>
+    <path d="M28 37 Q32 40.5 36 37" stroke="#7a3b2e" stroke-width="1.6" fill="none" stroke-linecap="round"/>${glasses}`;
+}
+const svgURI = svg => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+function avatarSVG(o = {}) {
+  return svgURI(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="${o.bg || '#cdd6e8'}"/>${faceParts(o)}</svg>`);
+}
+// Several faces in one circle (e.g. "the sisters", "the family"): looks = [look1, look2, ...] — 2 to 4 faces.
+function groupAvatarSVG(looks, bg) {
+  const n = Math.min(looks.length, 4);
+  const pos = n === 2 ? [[-7, 6, 56], [15, 6, 56]]
+            : n === 3 ? [[-12, 14, 48], [8, 4, 48], [28, 14, 48]]
+            : [[2, -1, 40], [22, -1, 40], [-6, 20, 42], [28, 20, 42]]; // 4: two at the back, two in front
+  const faces = looks.slice(0, n).map((o, i) => { const [x, y, w] = pos[i];
+    return `<svg x="${x}" y="${y}" width="${w}" height="${w}" viewBox="0 0 64 64">${faceParts(o)}</svg>`; });
+  if (n === 3) faces.push(faces.splice(1, 1)[0]); // middle face on top
+  return svgURI(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="${bg || looks[0].bg || '#cdd6e8'}"/>${faces.join('')}</svg>`);
+}
+// Hand-drawn avatars, used with  art: 'name'  in PEOPLE.
+const ART = {
+  'pistachio-yogurt': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#e3eec6"/>
+    <path d="M17 27 L47 27 L43 55 Q32 58.5 21 55 Z" fill="#fffdf6" stroke="#cdd5bd" stroke-width="1"/>
+    <path d="M18.6 36 L45.4 36 L43.9 47 Q32 49.5 20.1 47 Z" fill="#8fb24f"/>
+    <ellipse cx="27.5" cy="41.5" rx="3.6" ry="2.6" fill="#d8c08c"/><ellipse cx="27.8" cy="41.3" rx="2.2" ry="1.7" fill="#b6d36b"/>
+    <ellipse cx="36.5" cy="42" rx="3.6" ry="2.6" fill="#d8c08c"/><ellipse cx="36.2" cy="41.8" rx="2.2" ry="1.7" fill="#b6d36b"/>
+    <ellipse cx="32" cy="27" rx="15.5" ry="4.2" fill="#f1f4e6" stroke="#cdd5bd" stroke-width="1"/>
+    <ellipse cx="32" cy="27" rx="13.2" ry="3" fill="#bcd77c"/>
+    <path d="M42 26 Q53 17 47 7 Q39 12 37.5 25.5 Z" fill="#d7dade" stroke="#a9adb3" stroke-width="1"/>
+    <path d="M40.5 21 Q45 15 45.5 10" stroke="#f4f5f7" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+    <ellipse cx="27" cy="24.2" rx="3.2" ry="2.3" fill="#d8c08c" transform="rotate(-15 27 24.2)"/><ellipse cx="27.3" cy="23.9" rx="2" ry="1.5" fill="#9fc24c" transform="rotate(-15 27 24)"/>
+    <ellipse cx="33.5" cy="23.6" rx="3.2" ry="2.3" fill="#d8c08c" transform="rotate(20 33.5 23.6)"/><ellipse cx="33.3" cy="23.3" rx="2" ry="1.5" fill="#9fc24c" transform="rotate(20 33.3 23.3)"/></svg>`,
+};
+const PERSON = {};
+PEOPLE.forEach(p => { p.img = p.photo || (p.art && ART[p.art] ? svgURI(ART[p.art]) : null) || (p.looks ? groupAvatarSVG(p.looks, p.bg) : avatarSVG(p.look)); PERSON[p.id] = p; });
+const SOLO_IMG = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#f3ead9"/><text x="32" y="43" font-size="30" text-anchor="middle">🧭</text></svg>`);
+
+/* ---------- placeholder photos ---------- */
+function hash(s) { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
+function demoPhoto(label, sub, seed) {
+  const h = hash(seed), hue = h % 360, hue2 = (hue + 40) % 360, sunX = 120 + (h % 560);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 560">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="hsl(${hue},55%,72%)"/><stop offset="1" stop-color="hsl(${hue2},60%,88%)"/></linearGradient></defs>
+  <rect width="800" height="560" fill="url(#g)"/><circle cx="${sunX}" cy="170" r="70" fill="hsl(${(hue + 180) % 360},80%,92%)" opacity=".8"/>
+  <path d="M0 400 L160 260 L300 380 L450 230 L620 390 L800 280 L800 560 L0 560Z" fill="hsl(${hue},35%,45%)" opacity=".55"/>
+  <path d="M0 460 L200 360 L380 450 L560 340 L800 440 L800 560 L0 560Z" fill="hsl(${hue},40%,30%)" opacity=".7"/>
+  <text x="400" y="470" text-anchor="middle" font-family="Georgia,serif" font-size="46" fill="#fff" opacity=".95">${esc(label)}</text>
+  <text x="400" y="505" text-anchor="middle" font-family="sans-serif" font-size="18" letter-spacing="4" fill="#fff" opacity=".75">${esc(sub)}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+/* ---------- data prep ---------- */
+const expandWith = w => [...new Set((w || []).flatMap(x => GROUPS[x] || [x]))].filter(id => PERSON[id]);
+const splitList = v => v == null || v === '' ? [] : String(v).split(/[;,]/).map(x => x.trim()).filter(Boolean);
+const num = v => (v === null || v === undefined || v === '' || isNaN(+v)) ? null : +v;
+
+// A label point for areas: centre of the (largest) polygon.
+function labelPoint(g) {
+  const ringCentroid = r => { let a = 0, x = 0, y = 0;
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const f = r[j][0] * r[i][1] - r[i][0] * r[j][1]; a += f; x += (r[j][0] + r[i][0]) * f; y += (r[j][1] + r[i][1]) * f; }
+    return a ? { c: [x / (3 * a), y / (3 * a)], area: Math.abs(a / 2) } : { c: r[0], area: 0 }; };
+  if (g.type === 'Polygon') return ringCentroid(g.coordinates[0]).c;
+  if (g.type === 'MultiPolygon') return g.coordinates.map(p => ringCentroid(p[0])).sort((a, b) => b.area - a.area)[0].c;
+  if (g.type === 'LineString') return g.coordinates[Math.floor(g.coordinates.length / 2)];
+  if (g.type === 'MultiLineString') { const l = g.coordinates.slice().sort((a, b) => b.length - a.length)[0]; return l[Math.floor(l.length / 2)]; }
+  if (g.type === 'MultiPoint') return g.coordinates[0];
+  return g.coordinates;
+}
+function tripFromFeature(f) {
+  const p = f.properties || {}, g = f.geometry;
+  if (!g || !g.coordinates || num(p.start) == null) return null;
+  const nameEs = p.name || p.name_es || '?', nameEn = p.name_en || nameEs;
+  const photos = splitList(p.photos), capEs = String(p.captions || p.captions_es || '').split(';'), capEn = String(p.captions_en || '').split(';');
+  const [lon, lat] = labelPoint(g);
+  const type = p.type === 'lived' ? 'lived' : 'visited';
+  return {
+    place: { es: nameEs, en: nameEn }, lat, lon, type, start: num(p.start),
+    end: num(p.end) != null ? num(p.end) : (type === 'lived' ? null : num(p.start)),
+    with: splitList(p.with), story: (p.story || p.story_es || p.story_en) ? { es: p.story || p.story_es || p.story_en, en: p.story_en || p.story || p.story_es } : null,
+    photos: photos.map((src, i) => (capEs[i] || capEn[i]) ? { src, caption: { es: capEs[i] || capEn[i], en: capEn[i] || capEs[i] } } : src),
+    video: p.video || null, color: p.color || null,
+    geom: /Polygon/.test(g.type) ? g : null,
+  };
+}
+
+let TRIPS = [], fileTrips = [], MINY = CONFIG.startYear || NOW, MAXY = NOW, EVENT_YEARS = [];
+const state = { year: MINY, all: true, people: new Set(), playing: false };
+
+function prepData() {
+  TRIPS = [...MANUAL_TRIPS.map(t => ({ ...t })), ...fileTrips];
+  TRIPS.forEach((t, i) => {
+    t.id = i;
+    t.endY = t.end != null ? t.end : (t.type === 'lived' ? NOW : t.start);
+    t.people = expandWith(t.with);
+    t.key = t.lat.toFixed(3) + ',' + t.lon.toFixed(3) + (t.geom ? '#' + i : '');
+  });
+  MINY = CONFIG.startYear || (TRIPS.length ? Math.min(...TRIPS.map(t => t.start)) : NOW);
+  MAXY = Math.max(NOW, ...TRIPS.map(t => t.endY));
+  EVENT_YEARS = [...new Set(TRIPS.map(t => Math.max(t.start, MINY)))].sort((a, b) => a - b);
+  state.year = Math.min(Math.max(state.year, MINY), MAXY);
+  slider.min = MINY; slider.max = MAXY; slider.step = 1; slider.value = state.year;
+  renderTicks();
+}
+
+async function loadData() {
+  const results = await Promise.all((CONFIG.dataFiles || []).map(async f => {
+    try { const r = await fetch(f); if (!r.ok) throw 0; return (await r.json()).features || []; } catch (e) { return null; }
+  }));
+  const EMBEDDED = /*EMBEDDED_DATA*/null;   // only used by the online preview
+  if (results.every(r => r === null) && EMBEDDED) results.splice(0, results.length, ...EMBEDDED);
+  fileTrips = results.filter(Boolean).flat().map(tripFromFeature).filter(Boolean);
+  prepData(); applyLang();
+  if (results.length && results.every(r => r === null)) showToast(L().noFiles, 12000);
+  if (!document.getElementById('splash').classList.contains('gone')) return;
+  fitTo(visibleTrips(), true);
+}
+
+// Drag & drop .geojson files onto the page to preview them (replaces the loaded files' trips).
+addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('dragging'); });
+addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dragging'); });
+addEventListener('drop', async e => {
+  e.preventDefault(); document.body.classList.remove('dragging');
+  const files = [...e.dataTransfer.files].filter(f => /\.(geo)?json$/i.test(f.name));
+  if (!files.length) return;
+  try {
+    const feats = (await Promise.all(files.map(async f => JSON.parse(await f.text()).features || []))).flat();
+    fileTrips = feats.map(tripFromFeature).filter(Boolean);
+    state.people.clear(); state.all = true; closeCard();
+    prepData(); applyLang(); fitTo(visibleTrips(), true);
+    document.getElementById('splash').classList.add('gone');
+    showToast(L().loaded(fileTrips.length, files.length));
+  } catch (err) { showToast(L().badFile); }
+});
+let toastTimer;
+function showToast(msg, ms = 4000) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function visibleTrips() {
+  return TRIPS.filter(t => {
+    if (!state.all && !(t.start <= state.year && state.year <= t.endY)) return false;
+    if (state.people.size) {
+      const wantSolo = state.people.has('__solo');
+      if (!(t.people.some(p => state.people.has(p)) || (wantSolo && t.people.length === 0))) return false;
+    }
+    return true;
+  }).sort((a, b) => a.start - b.start);
+}
+
+/* ---------- stars ---------- */
+(function stars() {
+  const c = document.getElementById('stars'), x = c.getContext('2d');
+  const draw = () => { c.width = innerWidth * devicePixelRatio; c.height = innerHeight * devicePixelRatio;
+    x.clearRect(0, 0, c.width, c.height);
+    for (let i = 0; i < 260; i++) { const r = Math.random() * 1.2 * devicePixelRatio;
+      x.globalAlpha = .3 + Math.random() * .7; x.fillStyle = '#fff';
+      x.beginPath(); x.arc(Math.random() * c.width, Math.random() * c.height, r, 0, 7); x.fill(); } };
+  draw(); addEventListener('resize', draw);
+})();
+
+/* ---------- map ---------- */
+const topo = WORLD_TOPO; // loaded from world.js (country outlines)
+const countries = topojson.feature(topo, topo.objects.countries);
+// stitch polygons cut at the 180° meridian (e.g. eastern Russia) so the globe draws them cleanly
+countries.features.forEach(f => {
+  const g = f.geometry; if (!g || f.properties.name === 'Antarctica') return;
+  (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).forEach(poly => {
+    const xs = poly[0].map(c => c[0]);
+    if (Math.max(...xs) - Math.min(...xs) > 300) poly.forEach(r => r.forEach(c => { if (c[0] < 0) c[0] += 360; }));
+  });
+});
+
+const style = {
+  version: 8,
+  projection: { type: 'globe' },
+  sky: { 'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0] },
+  sources: {
+    countries: { type: 'geojson', data: countries },
+    route: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    areas: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+  },
+  layers: [{ id: 'ocean', type: 'background', paint: { 'background-color': '#1d3d5c' } }],
+};
+// Drawn globe underneath; satellite imagery on top when enabled (falls back to the drawn globe if tiles fail).
+style.layers.push({ id: 'land', type: 'fill', source: 'countries', paint: { 'fill-color': '#d9c7a3' } });
+style.layers.push({ id: 'borders', type: 'line', source: 'countries', paint: { 'line-color': '#a8916b', 'line-width': ['interpolate', ['linear'], ['zoom'], 1, .4, 6, 1.2] } });
+style.sources.countries.attribution = 'Natural Earth';
+if (CONFIG.basemap === 'satellite') {
+  style.sources.sat = { type: 'raster', tileSize: 256, maxzoom: 15,
+    tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg'],
+    attribution: '<a href="https://s2maps.eu">Sentinel-2 cloudless</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2020)' };
+  style.layers.push({ id: 'sat', type: 'raster', source: 'sat' });
+  style.layers.push({ id: 'sat-borders', type: 'line', source: 'countries', paint: { 'line-color': 'rgba(255,255,255,.35)', 'line-width': .6 } });
+}
+const areaColor = ['coalesce', ['get', 'color'], CONFIG.areaColor];
+style.layers.push({ id: 'areas-fill', type: 'fill', source: 'areas', filter: ['==', ['geometry-type'], 'Polygon'],
+  paint: { 'fill-color': areaColor, 'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.45, 0.28] } });
+style.layers.push({ id: 'areas-outline', type: 'line', source: 'areas', filter: ['==', ['geometry-type'], 'Polygon'],
+  paint: { 'line-color': areaColor, 'line-width': 2 } });
+style.layers.push({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round' },
+  paint: { 'line-color': '#f2c26b', 'line-width': 2.5, 'line-dasharray': [1.5, 1.5], 'line-opacity': .9 } });
+
+const map = new maplibregl.Map({ container: 'map', style, center: [-3.7, 40], zoom: 1.6, attributionControl: { compact: true }, maxPitch: 60 });
+map.dragRotate.disable(); map.touchZoomRotate.disableRotation();
+let satErrors = 0;
+map.on('error', e => {
+  if (e.sourceId === 'sat' && ++satErrors === 4 && map.getLayer('sat')) {
+    map.setLayoutProperty('sat', 'visibility', 'none'); map.setLayoutProperty('sat-borders', 'visibility', 'none');
+  }
+});
+
+/* idle spin until first interaction */
+let spinning = true;
+const stopSpin = () => { spinning = false; };
+['mousedown', 'touchstart', 'wheel'].forEach(e => map.getCanvasContainer().addEventListener(e, stopSpin, { passive: true }));
+function spin() { if (!spinning) return; const c = map.getCenter(); c.lng -= 0.08; map.jumpTo({ center: c }); requestAnimationFrame(spin); }
+map.on('load', () => { requestAnimationFrame(spin); render(); });
+
+/* ---------- markers ---------- */
+let markers = [];
+function facesHTML(ids, max = 3) {
+  if (!ids.length) return `<span class="solo">🧭</span>`;
+  const shown = ids.slice(0, max).map(id => `<img src="${PERSON[id].img}" alt="">`).join('');
+  return shown + (ids.length > max ? `<span class="more">+${ids.length - max}</span>` : '');
+}
+let markerGroups = [], lastClusterSig = '';
+function renderMarkers(trips) {
+  const groups = new Map();
+  trips.forEach(t => { if (!groups.has(t.key)) groups.set(t.key, []); groups.get(t.key).push(t); });
+  markerGroups = [...groups.values()];
+  lastClusterSig = ''; layoutMarkers();
+}
+// Merge pins that sit too close together on screen into one numbered bubble.
+function layoutMarkers() {
+  const R = CONFIG.clusterRadiusPx, z = map.getZoom();
+  const occluded = ll => { try { return map.transform.isLocationOccluded(new maplibregl.LngLat(ll[0], ll[1])); } catch (e) { return false; } };
+  const pts = markerGroups.map(ts => ({ ts, p: map.project([ts[0].lon, ts[0].lat]), home: ts.some(t => t.type === 'lived'),
+    hidden: occluded([ts[0].lon, ts[0].lat]) }));
+  pts.sort((a, b) => b.home - a.home);
+  const used = new Set(), clusters = [];
+  pts.forEach((a, i) => {
+    if (used.has(i)) return; used.add(i);
+    const members = [a];
+    if (z < CONFIG.clusterUntilZoom && !a.hidden) pts.forEach((b, j) => {
+      if (!used.has(j) && !b.hidden && Math.hypot(a.p.x - b.p.x, a.p.y - b.p.y) < R) { used.add(j); members.push(b); }
+    });
+    clusters.push(members);
+  });
+  const sig = clusters.map(c => c.map(m => m.ts[0].key).sort().join('+')).sort().join('|') + lang;
+  document.getElementById('map').classList.toggle('far', z < CONFIG.labelsFromZoom);
+  if (sig === lastClusterSig) return; lastClusterSig = sig;
+  markers.forEach(m => m.remove()); markers = [];
+  for (const c of clusters) {
+    const el = document.createElement('div'); el.className = 'mk';
+    if (c.length === 1) {
+      const ts = c[0].ts, isHome = c[0].home, ids = [...new Set(ts.flatMap(t => t.people))];
+      el.innerHTML = (isHome ? `<div class="mk-home">🏠</div>` : `<div class="mk-visit">${facesHTML(ids)}</div>`) + `<div class="nm">${esc(tr(ts[0].place))}</div>`;
+      el.addEventListener('click', e => { e.stopPropagation(); openCard(ts); });
+      markers.push(new maplibregl.Marker({ element: el, opacityWhenCovered: '0', anchor: isHome ? 'center' : 'bottom', offset: isHome ? [0, 0] : [0, -6] }).setLngLat([ts[0].lon, ts[0].lat]).addTo(map));
+    } else {
+      const all = c.flatMap(m => m.ts), hasHome = c.some(m => m.home);
+      const lon = c[0].ts[0].lon, lat = c[0].ts[0].lat;
+      const names = c.map(m => tr(m.ts[0].place)).join(', ');
+      el.innerHTML = `<div class="mk-cluster ${hasHome ? 'has-home' : ''}">${c.length}</div><div class="nm">${esc(L().nPlaces(c.length))}</div>`;
+      el.title = names;
+      el.addEventListener('click', e => {
+        e.stopPropagation(); stopSpin();
+        const b = new maplibregl.LngLatBounds(); all.forEach(t => b.extend([t.lon, t.lat]));
+        const narrow = innerWidth <= 900;
+        map.fitBounds(b, { padding: narrow ? { top: 120, bottom: 300, left: 60, right: 60 } : { top: 140, bottom: 220, left: 200, right: 380 },
+          maxZoom: Math.max(z + 2, 6), duration: 1200 });
+      });
+      markers.push(new maplibregl.Marker({ element: el, opacityWhenCovered: '0', anchor: 'center' }).setLngLat([lon, lat]).addTo(map));
+    }
+  }
+}
+map.on('moveend', () => layoutMarkers());
+map.on('zoomend', () => layoutMarkers());
+function renderAreas(trips) {
+  const src = map.getSource('areas'); if (!src) return;
+  src.setData({ type: 'FeatureCollection', features: trips.filter(t => t.geom).map(t => ({ type: 'Feature', id: t.id,
+    properties: { tid: t.id, ...(t.color ? { color: t.color } : {}) }, geometry: t.geom })) });
+}
+function areaAt(point) {
+  if (!map.getLayer('areas-fill')) return null;
+  const box = [[point.x - 6, point.y - 6], [point.x + 6, point.y + 6]];
+  const f = map.queryRenderedFeatures(box, { layers: ['areas-fill'] })[0];
+  return f ? TRIPS[f.properties.tid] : null;
+}
+let hoverId = null;
+map.on('mousemove', e => {
+  const t = areaAt(e.point); map.getCanvas().style.cursor = t ? 'pointer' : '';
+  const id = t ? t.id : null;
+  if (id !== hoverId) { if (hoverId != null) map.setFeatureState({ source: 'areas', id: hoverId }, { hover: false });
+    if (id != null) map.setFeatureState({ source: 'areas', id }, { hover: true }); hoverId = id; }
+});
+function renderRoute() {
+  if (!CONFIG.showHomeRoute) return;
+  const homes = TRIPS.filter(t => t.type === 'lived' && (state.all || t.start <= state.year)).sort((a, b) => a.start - b.start);
+  const coords = homes.map(t => [t.lon, t.lat]);
+  const src = map.getSource('route');
+  if (src) src.setData({ type: 'FeatureCollection', features: coords.length > 1 ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: coords } }] : [] });
+}
+
+/* ---------- list ---------- */
+function yearsText(t) {
+  if (t.type === 'lived') return `${t.start}–${t.end == null ? L().now : t.end}`;
+  return t.endY !== t.start ? `${t.start}–${t.endY}` : `${t.start}`;
+}
+function renderList(trips) {
+  document.getElementById('listTitle').textContent = state.all ? L().allPlaces(trips.length) : L().inYear(state.year);
+  const list = document.getElementById('list');
+  if (!trips.length) { list.innerHTML = `<div class="empty">${L().none}</div>`; }
+  else list.innerHTML = trips.map(t => `<button class="item" data-id="${t.id}">
+      <span class="ic ${t.type === 'lived' ? 'home' : ''}">${t.type === 'lived' ? '🏠' : t.geom ? '🗺️' : '✈️'}</span>
+      <span class="tx"><div class="nm">${esc(tr(t.place))}</div><div class="yr">${t.type === 'lived' ? L().lived : L().visited} · ${yearsText(t)}</div></span>
+      <span class="faces">${t.people.slice(0, 4).map(id => `<img src="${PERSON[id].img}" alt="">`).join('')}</span></button>`).join('');
+  list.querySelectorAll('.item').forEach(b => b.onclick = () => {
+    const t = TRIPS[+b.dataset.id]; openCard(visibleTrips().filter(x => x.key === t.key), t.id);
+  });
+  const st = document.getElementById('stats');
+  const sel = [...state.people].filter(id => id !== '__solo');
+  if (sel.length || state.people.has('__solo')) {
+    const all = TRIPS.filter(t => t.people.some(p => state.people.has(p)) || (state.people.has('__solo') && !t.people.length));
+    const names = [...sel.map(id => tr(PERSON[id].name)), ...(state.people.has('__solo') ? [L().solo.toLowerCase()] : [])].join(' + ');
+    st.textContent = all.length ? L().stat(names, all.length, Math.min(...all.map(t => t.start))) : '';
+    st.style.display = 'block';
+  } else st.style.display = 'none';
+}
+
+/* ---------- card ---------- */
+function photoSrc(p, t, i) {
+  const src = typeof p === 'string' ? p : p.src;
+  return src.startsWith('demo:') ? demoPhoto(tr(t.place), (lang === 'es' ? 'FOTO DE EJEMPLO ' : 'SAMPLE PHOTO ') + (i + 1), tr(t.place) + t.start + i) : src;
+}
+function videoHTML(v) {
+  if (!v) return '';
+  if (v === 'demo') return `<div class="video">${L().videoDemo}</div>`;
+  if (/\.(mp4|webm|mov)$/i.test(v)) return `<div class="video"><video src="${esc(v)}" controls preload="metadata"></video></div>`;
+  const m = v.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/);
+  if (m && CONFIG.embedVideos) return `<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/${m[1]}" allowfullscreen allow="encrypted-media; picture-in-picture"></iframe></div>`;
+  return `<div class="video"><a href="${esc(v)}" target="_blank" rel="noopener">${L().watch}</a></div>`;
+}
+function openCard(ts, focusId) {
+  if (!ts.length) return;
+  stopSpin();
+  const body = document.getElementById('cardBody');
+  body.innerHTML = ts.map(t => {
+    const photos = t.photos || [];
+    const caro = photos.length ? `<div class="carousel" data-i="0">
+        ${photos.map((p, i) => `<img src="${photoSrc(p, t, i)}" alt="" style="${i ? 'display:none' : ''}" data-cap="${esc(typeof p === 'object' && p.caption ? tr(p.caption) : '')}">`).join('')}
+        <div class="cap" style="display:none"></div>
+        ${photos.length > 1 ? `<button class="nav prev">‹</button><button class="nav next">›</button><div class="dots">${photos.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}
+      </div>` : '';
+    const chips = t.people.length ? t.people.map(id => { const p = PERSON[id];
+        return `<span class="chip"><img src="${p.img}" alt="">${esc(tr(p.name))} <small>${esc(tr(p.rel))}</small></span>`; }).join('')
+      : `<span class="chip"><img src="${SOLO_IMG}" alt="">${L().solo}</span>`;
+    return `<article class="visit" id="v${t.id}">${caro}
+      <div class="vhead"><span class="badge ${t.type === 'lived' ? 'home' : ''}">${t.type === 'lived' ? '🏠 ' + L().lived : '✈️ ' + L().visited}</span>
+      <h3>${esc(tr(t.place))}</h3><div class="when">${yearsText(t)}</div></div>
+      <div class="withrow">${chips}</div>
+      ${t.story ? `<div class="story">${esc(tr(t.story))}</div>` : ''}
+      ${videoHTML(t.video)}</article>`;
+  }).join('');
+  body.querySelectorAll('.carousel').forEach(setupCarousel);
+  const card = document.getElementById('card');
+  card.classList.remove('open'); void card.offsetWidth; card.classList.add('open');
+  body.scrollTop = 0;
+  if (focusId != null) { const el = document.getElementById('v' + focusId); if (el) body.scrollTop = el.offsetTop; }
+  const narrow = innerWidth <= 900;
+  if (ts.some(t => t.geom)) fitTo(ts, true, true);   // areas: frame the whole shape
+  else map.flyTo({ center: [ts[0].lon, ts[0].lat], zoom: Math.max(map.getZoom(), 4.5), duration: 1600,
+    offset: narrow ? [0, -innerHeight * 0.3] : [-260, 0], essential: true });
+  card.dataset.key = ts[0].key;
+}
+function setupCarousel(c) {
+  const imgs = [...c.querySelectorAll('img')], dots = [...c.querySelectorAll('.dots i')], cap = c.querySelector('.cap');
+  const show = i => { i = (i + imgs.length) % imgs.length; c.dataset.i = i;
+    imgs.forEach((im, k) => im.style.display = k === i ? '' : 'none'); dots.forEach((d, k) => d.classList.toggle('on', k === i));
+    const txt = imgs[i].dataset.cap; cap.textContent = txt; cap.style.display = txt ? '' : 'none'; };
+  c.querySelector('.prev')?.addEventListener('click', () => show(+c.dataset.i - 1));
+  c.querySelector('.next')?.addEventListener('click', () => show(+c.dataset.i + 1));
+  show(0);
+}
+function closeCard() { document.getElementById('card').classList.remove('open'); }
+document.getElementById('cardClose').onclick = closeCard;
+addEventListener('keydown', e => { if (e.key === 'Escape') closeCard(); if (e.key === 'ArrowRight') step(1); if (e.key === 'ArrowLeft') step(-1); });
+map.on('click', e => { const t = areaAt(e.point); if (t) openCard([t]); else closeCard(); });
+
+/* ---------- people filter ---------- */
+function renderPeople() {
+  const items = [...PEOPLE.map(p => ({ id: p.id, img: p.img, name: tr(p.name), title: `${tr(p.name)} · ${tr(p.rel)}` })),
+    ...(CONFIG.showSoloButton && TRIPS.some(t => !t.people.length) ? [{ id: '__solo', img: SOLO_IMG, name: L().solo, title: L().solo }] : [])];
+  document.getElementById('peopleList').innerHTML = items.map(p =>
+    `<button class="pbtn ${state.people.has(p.id) ? 'on' : ''}" data-id="${p.id}" title="${esc(p.title)}"><img src="${p.img}" alt=""><span>${esc(p.name)}</span></button>`).join('');
+  document.querySelectorAll('.pbtn').forEach(b => b.onclick = () => {
+    const id = b.dataset.id; state.people.has(id) ? state.people.delete(id) : state.people.add(id); render(true, false, true);
+  });
+  document.getElementById('people').classList.toggle('filtering', state.people.size > 0);
+}
+document.getElementById('clearPeople').onclick = () => { state.people.clear(); render(true, false, true); };
+
+/* ---------- timeline ---------- */
+const slider = document.getElementById('slider');
+function renderTicks() {
+  const span = MAXY - MINY || 1;
+  const decades = []; for (let y = Math.ceil(MINY / 10) * 10; y <= MAXY; y += 10) decades.push(y);
+  document.getElementById('ticks').innerHTML =
+    EVENT_YEARS.map(y => `<i style="left:${(y - MINY) / span * 100}%"></i>`).join('') +
+    decades.map(y => `<b style="left:${(y - MINY) / span * 100}%">${y}</b>`).join('');
+}
+slider.oninput = () => { stopPlay(); state.all = false; state.year = +slider.value; render(true, true); };
+function step(d) { stopPlay(); if (state.all) { state.all = false; state.year = d > 0 ? MINY : MAXY; } else state.year = Math.min(MAXY, Math.max(MINY, state.year + d)); render(true, true); }
+document.getElementById('prev').onclick = () => step(-1);
+document.getElementById('next').onclick = () => step(1);
+document.getElementById('allBtn').onclick = () => { stopPlay(); state.all = true; render(true, true); };
+
+let playTimer = null;
+function stopPlay() { state.playing = false; clearTimeout(playTimer); document.getElementById('play').textContent = '▶'; }
+function tick() {
+  if (!state.playing) return;
+  if (state.year >= MAXY) { stopPlay(); return; }
+  state.year++; render(true, true);
+  playTimer = setTimeout(tick, EVENT_YEARS.includes(state.year) ? CONFIG.playSpeedMs : CONFIG.playSpeedQuietMs);
+}
+document.getElementById('play').onclick = () => {
+  if (state.playing) return stopPlay();
+  closeCard(); stopSpin();
+  if (state.all || state.year >= MAXY) { state.all = false; state.year = MINY; }
+  state.playing = true; document.getElementById('play').textContent = '❚❚';
+  render(true, true);
+  playTimer = setTimeout(tick, CONFIG.playSpeedMs);
+};
+
+/* ---------- camera ---------- */
+let lastFitSig = '';
+// Fly to an overview of the given places: centre on them and zoom so they all fit
+// (works on the globe, including places on opposite sides of the world).
+function fitTo(trips, force = false, cardOpen = false) {
+  if (!trips.length) return;
+  const sig = trips.map(t => t.key).sort().join('|'); if (!force && sig === lastFitSig) return; lastFitSig = sig;
+  stopSpin();
+  const narrow = innerWidth <= 900;
+  const pad = cardOpen ? (narrow ? { top: 70, bottom: Math.round(innerHeight * 0.72), left: 30, right: 30 } : { top: 110, bottom: 190, left: 140, right: 760 })
+                       : (narrow ? { top: 110, bottom: 280, left: 40, right: 40 } : { top: 110, bottom: 190, left: 140, right: 340 });
+  const rad = Math.PI / 180;
+  const coordsOf = t => { if (!t.geom) return [[t.lon, t.lat]];
+    const all = []; const walk = c => typeof c[0] === 'number' ? all.push(c) : c.forEach(walk); walk(t.geom.coordinates);
+    const step = Math.max(1, Math.floor(all.length / 150)); return all.filter((_, i) => i % step === 0); };
+  const pts = [...new Map(trips.flatMap(coordsOf).map(c => [c[0].toFixed(4) + ',' + c[1].toFixed(4), [c[0] * rad, c[1] * rad]])).values()]
+    .map(([lo, la]) => [Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)]);
+  let [x, y, z] = pts.reduce((a, p) => [a[0] + p[0], a[1] + p[1], a[2] + p[2]], [0, 0, 0]);
+  const n = Math.hypot(x, y, z) || 1; x /= n; y /= n; z /= n;
+  const center = [Math.atan2(y, x) / rad, Math.asin(Math.max(-1, Math.min(1, z))) / rad];
+  const maxAng = Math.max(...pts.map(p => Math.acos(Math.max(-1, Math.min(1, p[0] * x + p[1] * y + p[2] * z)))));
+  let zoom;
+  if (pts.length === 1) zoom = 4.2;
+  else {
+    const half = Math.min(innerWidth - pad.left - pad.right, innerHeight - pad.top - pad.bottom) / 2;
+    const spread = Math.sin(Math.min(maxAng, Math.PI / 2)) || 0.001;
+    zoom = Math.log2(half * 2 * Math.PI * Math.cos(center[1] * rad) / (512 * spread)) - 0.15;
+    zoom = Math.max(1.2, Math.min(trips.some(t => t.geom) ? 7 : 5, zoom));
+  }
+  map.flyTo({ center, zoom, padding: pad, duration: 1500, essential: true });
+}
+
+/* ---------- render ---------- */
+function render(moveCamera = false, fromTimeline = false, forceCamera = false) {
+  const trips = visibleTrips();
+  const tl = document.getElementById('timeline');
+  tl.classList.toggle('allmode', state.all);
+  const yb = document.getElementById('yearBig');
+  yb.textContent = state.all ? '' : state.year; yb.classList.toggle('all', state.all);
+  slider.value = state.all ? slider.value : state.year;
+  document.getElementById('allBtn').classList.toggle('on', state.all);
+  if (map.loaded() || map.isStyleLoaded()) { renderMarkers(trips); renderRoute(); renderAreas(trips); }
+  renderList(trips); renderPeople();
+  if (moveCamera && trips.length) {
+    if (state.all && fromTimeline) { lastFitSig = ''; }
+    fitTo(trips, forceCamera);
+  }
+  // keep an open card in sync with filters
+  const card = document.getElementById('card');
+  if (card.classList.contains('open') && !trips.some(t => t.key === card.dataset.key)) closeCard();
+}
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.title = tr(CONFIG.title);
+  document.getElementById('tTitle').textContent = tr(CONFIG.title);
+  document.getElementById('tSub').textContent = tr(CONFIG.subtitle); document.getElementById('tSub').style.display = tr(CONFIG.subtitle) ? '' : 'none';
+  document.getElementById('sTitle').textContent = tr(CONFIG.title);
+  document.getElementById('sDed').textContent = tr(CONFIG.dedication); document.getElementById('sDed').style.visibility = tr(CONFIG.dedication) ? '' : 'hidden';
+  document.getElementById('sKick').textContent = L().kick;
+  document.getElementById('sGo').textContent = L().go;
+  document.getElementById('tWith').textContent = L().with;
+  document.getElementById('clearPeople').textContent = L().clear;
+  document.getElementById('allBtn').textContent = L().allBtn;
+  document.getElementById('listToggle').textContent = '☰ ' + L().places;
+  document.getElementById('legend').innerHTML = `<span><i class="lh"></i>${L().home}</span><span><i class="lv"></i>${L().trip}</span>${TRIPS.some(t => t.geom) ? `<span><i class="la"></i>${L().area}</span>` : ''}${CONFIG.showHomeRoute ? `<span><i class="lr"></i>${L().route}</span>` : ''}`;
+  document.querySelectorAll('#lang button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+  render();
+  const card = document.getElementById('card');
+  if (card.classList.contains('open')) openCard(visibleTrips().filter(t => t.key === card.dataset.key));
+}
+document.getElementById('lang').style.display = CONFIG.showLanguageSwitch ? '' : 'none';
+document.querySelectorAll('#lang button').forEach(b => b.onclick = () => { lang = b.dataset.l; applyLang(); });
+document.getElementById('listToggle').onclick = () => document.getElementById('listpanel').classList.toggle('show');
+document.getElementById('sGo').onclick = () => {
+  document.getElementById('splash').classList.add('gone');
+  setTimeout(() => fitTo(visibleTrips(), true), 300);
+};
+
+applyLang(); loadData();
+</script>
+</body>
+</html>
